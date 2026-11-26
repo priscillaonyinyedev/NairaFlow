@@ -30,3 +30,11 @@
 .dark .confirm-modal>p{color:#a8b5aa}
 .dark .confirm-icon{background:#422d2b;color:#ed9389}
 .dark .confirm-modal .modal-actions{border-color:#344338}
+.modal label select.native-select{display:none!important}
+.modal .custom-select-options{max-height:250px;overflow-y:auto;overscroll-behavior:contain}
+.modal .custom-select{width:100%}
+.modal .custom-select-trigger{height:52px;border-radius:10px;font-size:12px;color:#354239}
+.modal .custom-select-trigger:hover,.modal .custom-select.open .custom-select-trigger{border-color:#72a77c;box-shadow:0 0 0 3px #e7f3e9}
+.modal .custom-select-options{top:calc(100% + 4px)}
+.dark .modal .custom-select-trigger{background:#1b261e;color:#d3dfd5;border-color:#344338}
+.dark .modal .custom-option.selected{background:#294532;color:#b1dfba}

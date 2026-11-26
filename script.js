@@ -145,11 +145,24 @@
     $('expenseForm').reset(); $('expenseError').textContent = ''; $('expenseDate').value = localISODate(); $('expenseId').value = transaction?.id || '';
     $('expenseModalTitle').textContent = transaction ? 'Edit expense' : 'Add an expense'; $('expenseSubmit').textContent = transaction ? 'Save changes' : 'Save expense';
     if (transaction) { $('expenseTitle').value = transaction.title; $('expenseAmount').value = transaction.amount; $('expenseCategory').value = transaction.category; $('expenseDate').value = transaction.date; $('expensePayment').value = transaction.payment || 'Other'; $('expenseDescription').value = transaction.description || ''; }
+    syncCustomSelects();
     showModal('expenseModal');
   }
   function populateSelects() {
     const options = categories.map(c => `<option value="${escapeHTML(c.name)}">${c.icon} ${escapeHTML(c.name)}</option>`).join(''); $('expenseCategory').innerHTML = options; $('categoryBudgetCategory').innerHTML = options;
     $('categoryFilter').innerHTML = '<option value="all">All categories</option>' + categories.map(c => `<option value="${escapeHTML(c.name)}">${c.icon} ${escapeHTML(c.name)}</option>`).join('');
+    syncCustomSelects();
+  }
+  function syncCustomSelects() {
+    document.querySelectorAll('.custom-select[data-select-id]').forEach(wrapper => {
+      const native = $(wrapper.dataset.selectId); if (!native) return;
+      const selected = native.options[native.selectedIndex];
+      wrapper.querySelector('.custom-select-value').textContent = selected?.textContent || '';
+      wrapper.querySelector('.custom-select-options').innerHTML = [...native.options].map(option => `<button type="button" class="custom-option${option.selected ? ' selected' : ''}" role="option" aria-selected="${option.selected}" data-value="${escapeHTML(option.value)}">${escapeHTML(option.textContent)}<span class="option-check">✓</span></button>`).join('');
+    });
+  }
+  function closeCustomSelectMenus() {
+    document.querySelectorAll('.custom-select[data-select-id]').forEach(wrapper => { wrapper.classList.remove('open'); wrapper.querySelector('.custom-select-options').hidden = true; wrapper.querySelector('.custom-select-trigger').setAttribute('aria-expanded', 'false'); });
   }
   function navigate(page) {
     const valid = ['dashboard','transactions','budgets','analytics','settings'].includes(page) ? page : 'dashboard';
@@ -162,7 +175,14 @@
     document.querySelectorAll('[data-go]').forEach(button => button.addEventListener('click', () => navigate(button.dataset.go)));
     document.querySelectorAll('.close-modal').forEach(button => button.addEventListener('click', hideModals));
     document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.addEventListener('click', e => { if (e.target === backdrop) hideModals(); }));
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeCurrencyMenu(); hideModals(); } });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeCurrencyMenu(); closeCustomSelectMenus(); hideModals(); } });
+    document.addEventListener('click', e => {
+      const trigger = e.target.closest('.custom-select-value-trigger');
+      if (trigger) { const wrapper = trigger.closest('.custom-select'); const opening = wrapper.querySelector('.custom-select-options').hidden; closeCustomSelectMenus(); if (opening) { wrapper.classList.add('open'); wrapper.querySelector('.custom-select-options').hidden = false; trigger.setAttribute('aria-expanded', 'true'); } return; }
+      const option = e.target.closest('.custom-select[data-select-id] .custom-option');
+      if (option) { const wrapper = option.closest('.custom-select'); const native = $(wrapper.dataset.selectId); native.value = option.dataset.value; native.dispatchEvent(new Event('change', { bubbles: true })); syncCustomSelects(); closeCustomSelectMenus(); return; }
+      if (!e.target.closest('.custom-select[data-select-id]')) closeCustomSelectMenus();
+    });
     $('addExpenseBtn').addEventListener('click', () => openExpense()); $('addExpenseBtn2').addEventListener('click', () => openExpense());
     $('recentTransactions').addEventListener('click', transactionAction); $('allTransactions').addEventListener('click', transactionAction);
     document.querySelectorAll('#searchInput,#categoryFilter,#dateFilter,#sortFilter').forEach(el => el.addEventListener(el.tagName === 'INPUT' ? 'input' : 'change', renderTransactions));
@@ -178,8 +198,8 @@
     $('editBudgetBtn').addEventListener('click', () => { $('budgetInput').value = monthlyBudget() || ''; showModal('budgetModal'); });
     $('budgetForm').addEventListener('submit', e => { e.preventDefault(); const value = Number($('budgetInput').value); if (!Number.isFinite(value) || value < 0) return; state.budgets[currentMonthKey()] = value; saveState(); hideModals(); render(); toast('Monthly budget saved.'); });
     $('settingsBudgetForm').addEventListener('submit', e => { e.preventDefault(); const value = Number($('settingsBudgetInput').value); if (!Number.isFinite(value) || value < 0) { toast('Enter a valid budget amount.', 'error'); return; } state.budgets[currentMonthKey()] = value; saveState(); render(); toast('Monthly budget saved.'); });
-    $('categoryBudgetBtn').addEventListener('click', () => { $('categoryBudgetAmount').value = ''; showModal('categoryBudgetModal'); });
-    $('categoryBudgets').addEventListener('click', e => { if (e.target.closest('.add-category-empty')) { $('categoryBudgetAmount').value = ''; showModal('categoryBudgetModal'); } const edit = e.target.closest('.cat-edit'); if (edit) { $('categoryBudgetCategory').value = edit.dataset.category; $('categoryBudgetAmount').value = state.categoryBudgets[currentMonthKey()]?.[edit.dataset.category] || ''; showModal('categoryBudgetModal'); } });
+    $('categoryBudgetBtn').addEventListener('click', () => { $('categoryBudgetAmount').value = ''; syncCustomSelects(); showModal('categoryBudgetModal'); });
+    $('categoryBudgets').addEventListener('click', e => { if (e.target.closest('.add-category-empty')) { $('categoryBudgetAmount').value = ''; syncCustomSelects(); showModal('categoryBudgetModal'); } const edit = e.target.closest('.cat-edit'); if (edit) { $('categoryBudgetCategory').value = edit.dataset.category; $('categoryBudgetAmount').value = state.categoryBudgets[currentMonthKey()]?.[edit.dataset.category] || ''; syncCustomSelects(); showModal('categoryBudgetModal'); } });
     $('categoryBudgetForm').addEventListener('submit', e => { e.preventDefault(); const category = $('categoryBudgetCategory').value, amount = Number($('categoryBudgetAmount').value); if (!Number.isFinite(amount) || amount < 0) return; const key = currentMonthKey(); state.categoryBudgets[key] ||= {}; if (amount === 0) delete state.categoryBudgets[key][category]; else state.categoryBudgets[key][category] = amount; saveState(); hideModals(); render(); toast('Category budget saved.'); });
     $('profileForm').addEventListener('submit', e => { e.preventDefault(); const name = $('nameInput').value.trim(); if (!name) { toast('Enter a display name.', 'error'); return; } state.name = name; saveState(); render(); toast('Your display name was updated.'); });
     $('currencySelect').addEventListener('change', e => { state.currency = e.target.value; saveState(); render(); toast('Currency display updated.'); });
